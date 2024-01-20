@@ -16,7 +16,7 @@ import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 /**
- * Represents a supplier of {@link CloseableWrapper <T> auto-closeable wrapper} over the
+ * Represents a supplier of {@link Wrapper <T> auto-closeable wrapper} over the
  * temporary cached instance of the {@link T value} supplied by the {@link #delegate}.
  * <p>
  * The initial instance of the value is created at the first call to {@link #get()}.<br/>
@@ -27,7 +27,7 @@ import java.util.function.Supplier;
  * @param <T> the type of results supplied by this supplier
  */
 @RequiredArgsConstructor(access = AccessLevel.PRIVATE)
-public class CachedSupplier<T> {
+public class CachedSupplier<T> implements Supplier<CachedSupplier.Wrapper<T>> {
     private final Supplier<T> delegate;
     private final long durationNanos;
     private final Consumer<T> finisher;
@@ -66,7 +66,8 @@ public class CachedSupplier<T> {
      *
      * @return the auto-closeable wrapper over the temporary cached instance of the value
      */
-    public CloseableWrapper<T> get() {
+    @Override
+    public Wrapper<T> get() {
         var cv = this.cachedValue;
         if (cv == null) {
             synchronized (this) {
@@ -121,9 +122,9 @@ public class CachedSupplier<T> {
         /**
          * Represents a spy for a {@link CachedValue cached instance of the value}.
          * <p>
-         * Spy is a main part of the {@link CloseableWrapper auto-closeable wrapper}
+         * Spy is a main part of the {@link Wrapper auto-closeable wrapper}
          * supplied to the client.
-         * The {@link #closed} flag reacts to the {@link CloseableWrapper#close() wrapper's close()}.
+         * The {@link #closed} flag reacts to the {@link Wrapper#close() wrapper's close()}.
          *
          * @param <T> the type of the value
          */
@@ -136,12 +137,12 @@ public class CachedSupplier<T> {
     }
 
     /**
-     * Represents an {@link AutoCloseable auto-closeable} value wrapper over the
+     * Represents an {@link AutoCloseable auto-closeable} temporary cached value wrapper over the
      * temporary cached instance of the {@link T value} supplied by the {@link #delegate}.
      *
      * @param <T> the type of the value
      */
-    public sealed interface CloseableWrapper<T> extends AutoCloseable {
+    public sealed interface Wrapper<T> extends AutoCloseable {
         /**
          * Returns the temporary cached instance of the value supplied by the {@link #delegate}.
          *
@@ -162,9 +163,9 @@ public class CachedSupplier<T> {
     }
 
     /**
-     * The {@link CloseableWrapper value wrapper} implementation.
+     * The {@link Wrapper temporary cached value wrapper} implementation.
      */
-    private final class CloseableWrapperImpl implements CloseableWrapper<T> {
+    private final class CloseableWrapperImpl implements Wrapper<T> {
         private static final Cleaner cleaner = Cleaner.create();
 
         private final CleanableState<T> state;
@@ -221,9 +222,9 @@ public class CachedSupplier<T> {
 
     /**
      * The {@code Tracker} controls {@link CachedValue.Spy spies}
-     * for a {@link CachedValue cached value} that are supplied inside the {@link CloseableWrapper wrappers}.
+     * for a {@link CachedValue cached value} that are supplied inside the {@link Wrapper wrappers}.
      *
-     * @param holder a collection to control values supplied inside the {@link CloseableWrapper wrappers}.
+     * @param holder a collection to control values supplied inside the {@link Wrapper wrappers}.
      * @param <T>    the type of the value
      */
     private record Tracker<T>(Map<CachedValue<T>, List<CachedValue.Spy<T>>> holder) {
