@@ -4,6 +4,8 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
+import lombok.Setter;
+import lombok.experimental.Accessors;
 
 import java.lang.ref.Cleaner;
 import java.time.Duration;
@@ -56,6 +58,19 @@ public class CachedSupplier<T> implements Supplier<CachedSupplier.Wrapper<T>> {
         if (!duration.isPositive())
             throw new IllegalArgumentException(STR."duration (\{duration.toNanos()} NANOS) must be > 0");
         return new CachedSupplier<>(delegate, duration.toNanos(), finisher);
+    }
+
+    public static <T> Builder<T> builder(@NonNull Supplier<T> delegate) {return new Builder<>(delegate);}
+
+    @Setter
+    @Accessors(fluent = true, chain = true)
+    @RequiredArgsConstructor(access = AccessLevel.PRIVATE)
+    public static final class Builder<T> {
+        private final Supplier<T> delegate;
+        private Duration duration = Duration.ofSeconds(60L);
+        private Consumer<T> finisher = _ -> {};
+
+        public CachedSupplier<T> build() {return CachedSupplier.of(delegate, duration, finisher);}
     }
 
 
@@ -214,7 +229,7 @@ public class CachedSupplier<T> implements Supplier<CachedSupplier.Wrapper<T>> {
             public void run() {
                 final var cvs = this.cachedValueSpy;
                 cvs.closed = true;
-                cleanupValueIfExpiredAndClosed(tracker, cvs.cachedValue, finisher);
+                tracker.cleanupValueIfExpiredAndClosed(cvs.cachedValue, finisher);
                 tracker.asyncCleanupAllExpiredAndClosed(finisher);
             }
         }
@@ -265,25 +280,20 @@ public class CachedSupplier<T> implements Supplier<CachedSupplier.Wrapper<T>> {
          * @param finisher the function applied to the value when it has expired and is no longer in use
          */
         void asyncCleanupAllExpiredAndClosed(final Consumer<T> finisher) {
-            CompletableFuture.runAsync(() -> this.holder.keySet().forEach(cv -> cleanupValueIfExpiredAndClosed(this, cv, finisher)));
+            CompletableFuture.runAsync(() -> this.holder.keySet().forEach(cv -> cleanupValueIfExpiredAndClosed(cv, finisher)));
         }
-    }
 
-    /**
-     * If the cached value has expired and all supplied wrappers with its value are closed,
-     * then remove the value from the tracker and apply the finisher function to it.
-     *
-     * @param tracker     controls spies for a cached value that are supplied inside the wrappers
-     * @param cachedValue the temporary cached value
-     * @param finisher    the function applied to the value when it has expired and is no longer in use
-     * @param <T>         the type of the value
-     */
-    private static <T> void cleanupValueIfExpiredAndClosed(final Tracker<T> tracker,
-                                                           final CachedValue<T> cachedValue,
-                                                           final Consumer<T> finisher) {
-        if (cachedValue.isExpired()) {
-            if (tracker.isAllSuppliedWrappersClosed(cachedValue)) {
-                tracker.deregister(cachedValue);
+
+        /**
+         * If the cached value has expired and all supplied wrappers with its value are closed,
+         * then remove the value from the tracker and apply the finisher function to it.
+         *
+         * @param cachedValue the temporary cached value
+         * @param finisher    the function applied to the value when it has expired and is no longer in use
+         */
+        void cleanupValueIfExpiredAndClosed(final CachedValue<T> cachedValue, final Consumer<T> finisher) {
+            if (cachedValue.isExpired() && isAllSuppliedWrappersClosed(cachedValue)) {
+                deregister(cachedValue);
                 finisher.accept(cachedValue.value);
             }
         }

@@ -13,6 +13,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -20,7 +21,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class CachedSupplierTest {
 
-    private static final Duration TIMEOUT_ONE_SEC = Duration.ofSeconds(1);
+    private static final Duration TIMEOUT_ONE_SEC = Duration.ofSeconds(1L);
+    private static final Duration TECHNICAL_TIMEOUT = Duration.ofMillis(200L);
 
     @Test
     void testUnreferencedWrapperCleaned() {
@@ -53,8 +55,10 @@ class CachedSupplierTest {
                 executor -> {isFinished.set(true); executor.shutdown();});
 
         try (var _ = executorSupplier.get()) {
-            waiteForAWhile(timeout);
+            waitForAWhile(timeout);
         }
+
+        waitForAWhile(TECHNICAL_TIMEOUT);
 
         assertTrue(isFinished.get());
     }
@@ -80,7 +84,7 @@ class CachedSupplierTest {
         final var executor4 = wrapper2.get();
         assertEquals(executor1, executor4);
 
-        waiteForAWhile(timeout);
+        waitForAWhile(timeout);
 
         // until all wrappers with expired value are not closed/cleaned by the GS the value is safe to use
         final Executable executable = () -> executor1.submit(() -> {});
@@ -90,6 +94,7 @@ class CachedSupplierTest {
 
         // if a value has expired and all its wrappers have been closed, it is impossible to use it anymore
         assertThrows(RejectedExecutionException.class, executable);
+        assertTrue(executor1.isShutdown());
 
         // expired wrappers still contains their cached values even after they have been closed
         final var executor5 = wrapper2.get();
@@ -102,7 +107,41 @@ class CachedSupplierTest {
         }
     }
 
-    private static void waiteForAWhile(final Duration timeout) {
+    @Test
+    void testBuilder() {
+        final var timeout = TIMEOUT_ONE_SEC;
+        final var executorSupplierWithFinisher = CachedSupplier.builder(Executors::newSingleThreadExecutor)
+                .duration(timeout)
+                .finisher(ExecutorService::shutdown)
+                .build();
+
+        final ExecutorService executor1;
+        try (final var executorWrapper = executorSupplierWithFinisher.get()) {
+            executor1 = executorWrapper.get();
+            waitForAWhile(timeout);
+            assertFalse(executor1.isShutdown());
+        }
+
+        waitForAWhile(TECHNICAL_TIMEOUT);
+        assertTrue(executor1.isShutdown()); // the finisher function has been applied so the executor is shut down
+
+
+        final var executorSupplierWithoutFinisher = CachedSupplier.builder(Executors::newSingleThreadExecutor)
+                .duration(timeout)
+                .build();
+
+        final ExecutorService executor2;
+        try (final var executorWrapper = executorSupplierWithoutFinisher.get()) {
+            executor2 = executorWrapper.get();
+            waitForAWhile(timeout);
+            assertFalse(executor2.isShutdown());
+        }
+
+        waitForAWhile(TECHNICAL_TIMEOUT);
+        assertFalse(executor2.isShutdown()); // there is no finisher function, so the executor is still active
+    }
+
+    private static void waitForAWhile(final Duration timeout) {
         Awaitility.await()
                 .timeout(timeout)
                 .pollDelay(timeout.minusMillis(1))
