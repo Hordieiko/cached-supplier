@@ -104,26 +104,6 @@ public class CachedSupplier<T> implements Supplier<CachedSupplier.Wrapper<T>> {
     public static <T> Builder<T> builder(@NonNull Supplier<T> delegate) {return new Builder<>(delegate);}
 
     /**
-     * Builder with required delegate and optional duration and finisher function.
-     * <p>
-     * The default cache duration is 60 seconds.<br/>
-     * The default finisher function is to do nothing.<br/>
-     *
-     * @param <T> the type of the value
-     */
-    @Setter
-    @Accessors(fluent = true, chain = true)
-    @RequiredArgsConstructor(access = AccessLevel.PRIVATE)
-    public static final class Builder<T> {
-        private final Supplier<T> delegate;
-        private Duration duration = Duration.ofSeconds(60L);
-        private Consumer<T> finisher = _ -> {};
-
-        public CachedSupplier<T> build() {return CachedSupplier.of(delegate, duration, finisher);}
-    }
-
-
-    /**
      * On the first call, creates a cached instance of the value supplied by the {@link #delegate}.
      * On subsequent calls, it renews the cached value with the new one from the delegate if it has expired.
      * Also applies {@link #finisher} function for all expired values that are no longer in use.
@@ -346,5 +326,24 @@ public class CachedSupplier<T> implements Supplier<CachedSupplier.Wrapper<T>> {
                 finisher.accept(cachedValue.value);
             }
         }
+    }
+
+    /**
+     * Builder with required delegate and optional duration and finisher function.
+     * <p>
+     * The default cache duration is 60 seconds.<br/>
+     * The default finisher function is to do nothing.<br/>
+     *
+     * @param <T> the type of the value
+     */
+    @Setter
+    @Accessors(fluent = true, chain = true)
+    @RequiredArgsConstructor(access = AccessLevel.PRIVATE)
+    public static final class Builder<T> {
+        private final Supplier<T> delegate;
+        private Duration duration = Duration.ofSeconds(60L);
+        private Consumer<T> finisher = _ -> {};
+
+        public CachedSupplier<T> build() {return CachedSupplier.of(delegate, duration, finisher);}
     }
 }
