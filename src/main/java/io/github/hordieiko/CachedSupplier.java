@@ -149,7 +149,7 @@ public class CachedSupplier<T> implements Supplier<CachedSupplier.Wrapper<T>> {
 
         final var spy = new CachedValue.Spy<T>(cv);
         this.tracker.register(spy);
-        return new CloseableWrapperImpl(spy);
+        return new CloseableWrapper(spy);
     }
 
     /**
@@ -229,13 +229,13 @@ public class CachedSupplier<T> implements Supplier<CachedSupplier.Wrapper<T>> {
     /**
      * The {@link Wrapper temporary cached value wrapper} implementation.
      */
-    private final class CloseableWrapperImpl implements Wrapper<T> {
+    private final class CloseableWrapper implements Wrapper<T> {
         private static final Cleaner cleaner = Cleaner.create();
 
         private final CleanableState<T> state;
         private final Cleaner.Cleanable cleanable;
 
-        private CloseableWrapperImpl(CachedValue.Spy<T> cachedValueSpy) {
+        private CloseableWrapper(CachedValue.Spy<T> cachedValueSpy) {
             this.state = new CleanableState<>(cachedValueSpy, finisher, tracker);
             this.cleanable = cleaner.register(this, state);
         }
