@@ -25,6 +25,39 @@ import java.util.function.Supplier;
  * The {@link #durationNanos duration} specifies the amount of time for caching.<br/>
  * The {@link #finisher} function will be applied to the cached instance of the {@link T value}
  * once it has expired and all wrappers over it are closed, so it is no longer in use.
+ * <p>
+ * When you have a massive object that consumes a vast amount of system resources,
+ * and you need it from time to time, but not always. You can use the {@code CachedSupplier},
+ * which has lazy initialization, to create and cache this object only when it’s actually needed.
+ * As a benefit, you can define a timeout and finisher function that will be automatically
+ * applied to the cashed instance of the object once it is no longer in use.
+ *
+ * <p><b>Usage Example</b></p>
+ * <pre> {@code
+ * class Main {
+ *      // an instance of the ExecutorService will be cached for 30 seconds,
+ *      // so the next call to executorSupplier#get() after timeout gives you
+ *      // a wrapper with a new cached instance of the service, while the finisher
+ *      // function applied to the expired one
+ *      private static final var executorSupplier = CachedSupplier.of(
+ *                 // a delegate that supplies a new instance of a massive object
+ *                 Executors::newSingleThreadExecutor,
+ *                 // cache timeout for an instance of the object
+ *                 Duration.ofSeconds(30L),
+ *                 // finisher function for the expired instance of the object
+ *                 ExecutorService::shutdown);
+ *
+ *      void rareMethodThatUsesAHeavyweightService(final Runnable task) {
+ *          // during the next 30 seconds after the first call to the
+ *          // executorSupplier#get(), the executorSupplier will supply
+ *          // a cached instance of the executor inside the wrappers.
+ *          try (final var executorWrapper = executorSupplier.get()) {
+ *              final var executor = executorWrapper.get();
+ *              executor.submit(task);
+ *          }
+ *      }
+ * }
+ * }</pre>
  *
  * @param <T> the type of results supplied by this supplier
  */
