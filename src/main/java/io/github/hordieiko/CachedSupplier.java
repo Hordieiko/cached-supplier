@@ -93,8 +93,24 @@ public class CachedSupplier<T> implements Supplier<CachedSupplier.Wrapper<T>> {
         return new CachedSupplier<>(delegate, duration.toNanos(), finisher);
     }
 
+    /**
+     * Builder allows the creation of a {@code CachedSupplier}
+     * with a predefined duration and/or finisher function.
+     *
+     * @param delegate the value supplier
+     * @param <T>      the type of the value
+     * @return a builder to construct a {@code CachedSupplier}
+     */
     public static <T> Builder<T> builder(@NonNull Supplier<T> delegate) {return new Builder<>(delegate);}
 
+    /**
+     * Builder with required delegate and optional duration and finisher function.
+     * <p>
+     * The default cache duration is 60 seconds.<br/>
+     * The default finisher function is to do nothing.<br/>
+     *
+     * @param <T> the type of the value
+     */
     @Setter
     @Accessors(fluent = true, chain = true)
     @RequiredArgsConstructor(access = AccessLevel.PRIVATE)
