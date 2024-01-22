@@ -33,7 +33,7 @@ public class CachedSupplier<T> implements Supplier<CachedSupplier.Wrapper<T>> {
     private final Supplier<T> delegate;
     private final long durationNanos;
     private final Consumer<T> finisher;
-    private volatile CachedValue<T> cachedValue;// = CachedValue.empty();
+    private volatile CachedValue<T> cachedValue;
     private final Tracker<T> tracker = new Tracker<>();
 
     /**
